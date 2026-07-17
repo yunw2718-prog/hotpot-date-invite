@@ -104,6 +104,7 @@ export default function Home() {
     }
 
     setStep(5);
+    return;
     setSendStatus("sending");
     setSendMessage("正在生成图片并发送到邮箱...");
 
