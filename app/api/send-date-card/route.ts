@@ -9,14 +9,23 @@ type DateCardPayload = {
   dishes?: string[];
 };
 
+function friendlyResendError(detail: string) {
+  if (detail.includes("You can only send testing emails")) {
+    return "Email failed: Resend is still in test mode. Please verify a sending domain in Resend, then set RESEND_FROM_EMAIL to an address on that domain.";
+  }
+
+  return `Email failed: ${detail}`;
+}
+
 export async function POST(request: Request) {
   const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 
   if (!resendApiKey) {
     return Response.json(
       {
         error:
-          "邮件发送服务还未配置。请在站点环境变量中设置 RESEND_API_KEY 后重新发布。",
+          "Email service is not configured. Please set RESEND_API_KEY and redeploy.",
       },
       { status: 503 },
     );
@@ -27,11 +36,11 @@ export async function POST(request: Request) {
   const recipient = payload.recipient === targetEmail ? payload.recipient : targetEmail;
 
   if (!image.startsWith("data:image/png;base64,")) {
-    return Response.json({ error: "图片格式不正确。" }, { status: 400 });
+    return Response.json({ error: "Invalid image format." }, { status: 400 });
   }
 
   const imageBase64 = image.replace("data:image/png;base64,", "");
-  const dishes = payload.dishes?.length ? payload.dishes.join("、") : "未选择";
+  const dishes = payload.dishes?.length ? payload.dishes.join(", ") : "Not selected";
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -40,17 +49,17 @@ export async function POST(request: Request) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Date Invite <onboarding@resend.dev>",
+      from: `Date Invite <${fromEmail}>`,
       to: [recipient],
-      subject: "新的约会火锅信息卡",
+      subject: "New hotpot date card",
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.7;">
-          <h2>新的约会信息已经提交</h2>
-          <p><strong>锅底：</strong>${payload.soup ?? "未选择"}</p>
-          <p><strong>配菜：</strong>${dishes}</p>
-          <p><strong>日期：</strong>${payload.date ?? "未选择"}</p>
-          <p><strong>时间：</strong>${payload.time ?? "未选择"}</p>
-          <p>约会信息图片见附件。</p>
+          <h2>A new date card was submitted</h2>
+          <p><strong>Soup base:</strong> ${payload.soup ?? "Not selected"}</p>
+          <p><strong>Dishes:</strong> ${dishes}</p>
+          <p><strong>Date:</strong> ${payload.date ?? "Not selected"}</p>
+          <p><strong>Time:</strong> ${payload.time ?? "Not selected"}</p>
+          <p>The date card image is attached.</p>
         </div>
       `,
       attachments: [
@@ -65,7 +74,7 @@ export async function POST(request: Request) {
   if (!response.ok) {
     const detail = await response.text();
     return Response.json(
-      { error: `邮件发送失败：${detail}` },
+      { error: friendlyResendError(detail) },
       { status: response.status },
     );
   }
