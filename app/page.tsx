@@ -26,6 +26,8 @@ export default function Home() {
   const [noPosition, setNoPosition] = useState({ x: 0, y: 0 });
   const [date, setDate] = useState("");
   const [time, setTime] = useState(times[3]);
+  const [sendStatus, setSendStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const [sendMessage, setSendMessage] = useState("");
 
   const progress = useMemo(() => `${step + 1}/6`, [step]);
 
@@ -42,6 +44,95 @@ export default function Home() {
       x: Math.round(Math.random() * 180 - 90),
       y: Math.round(Math.random() * 120 - 60),
     });
+  };
+
+  const createDateCard = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1200;
+    canvas.height = 800;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("无法生成图片");
+    }
+
+    const gradient = context.createLinearGradient(0, 0, 1200, 800);
+    gradient.addColorStop(0, "#fff6e8");
+    gradient.addColorStop(0.55, "#ffd9dd");
+    gradient.addColorStop(1, "#dff5d7");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 1200, 800);
+
+    context.fillStyle = "rgba(255, 255, 255, 0.76)";
+    context.roundRect(96, 90, 1008, 620, 36);
+    context.fill();
+
+    context.fillStyle = "#8f2238";
+    context.font = "bold 72px Arial, sans-serif";
+    context.fillText("约会信息卡", 160, 190);
+
+    context.fillStyle = "#bd2846";
+    context.font = "bold 42px Arial, sans-serif";
+    context.fillText("吃货就位，快乐加倍", 160, 260);
+
+    context.fillStyle = "#3b2724";
+    context.font = "34px Arial, sans-serif";
+    const lines = [
+      `锅底：${selectedSoup}`,
+      `配菜：${selectedDishes.length ? selectedDishes.join("、") : "还没选配菜"}`,
+      `散步：接受`,
+      `日期：${date || "未选择"}`,
+      `时间：${time}`,
+    ];
+
+    lines.forEach((line, index) => {
+      context.fillText(line, 160, 360 + index * 70);
+    });
+
+    context.fillStyle = "#2f8f63";
+    context.font = "bold 30px Arial, sans-serif";
+    context.fillText("重庆火锅约会计划已生成", 160, 675);
+
+    return canvas.toDataURL("image/png");
+  };
+
+  const finishAndSend = async () => {
+    if (!date) {
+      setSendStatus("failed");
+      setSendMessage("请先选择约会日期。");
+      return;
+    }
+
+    setStep(5);
+    setSendStatus("sending");
+    setSendMessage("正在生成图片并发送到邮箱...");
+
+    try {
+      const cardImage = createDateCard();
+      const response = await fetch("/api/send-date-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: "18640865859@163.com",
+          image: cardImage,
+          date,
+          time,
+          soup: selectedSoup,
+          dishes: selectedDishes,
+        }),
+      });
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error || "发送失败");
+      }
+
+      setSendStatus("sent");
+      setSendMessage("约会信息图片已经发送到邮箱。");
+    } catch (error) {
+      setSendStatus("failed");
+      setSendMessage(error instanceof Error ? error.message : "发送失败，请稍后再试。");
+    }
   };
 
   return (
@@ -187,7 +278,8 @@ export default function Home() {
             <p className="summary">
               {date ? `就定在 ${date} ${time}` : `先选一天，再定 ${time}`}
             </p>
-            <button className="primary-button" onClick={() => setStep(5)}>
+            {sendStatus === "failed" && <p className="error-text">{sendMessage}</p>}
+            <button className="primary-button" onClick={finishAndSend}>
               完成
             </button>
           </div>
@@ -200,6 +292,9 @@ export default function Home() {
             <p>吃货就位。</p>
             <p>快乐加倍。</p>
           </div>
+          <p className={`send-status ${sendStatus}`}>
+            {sendMessage || "约会信息图片准备发送到邮箱。"}
+          </p>
           <button className="secondary-button" onClick={() => setStep(0)}>
             再看一遍
           </button>

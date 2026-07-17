@@ -300,6 +300,12 @@ button {
   font-weight: 800;
 }
 
+.error-text {
+  margin: 0 0 16px;
+  color: #b52136;
+  font-weight: 800;
+}
+
 .walk-screen {
   background:
     linear-gradient(rgba(255, 255, 255, 0.1), rgba(31, 58, 31, 0.16)),
@@ -367,6 +373,25 @@ button {
 
 .done-screen {
   gap: 34px;
+}
+
+.send-status {
+  max-width: min(720px, calc(100vw - 32px));
+  margin: 0;
+  border-radius: 999px;
+  padding: 14px 22px;
+  text-align: center;
+  color: #66332d;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 14px 32px rgba(100, 46, 40, 0.12);
+}
+
+.send-status.sent {
+  color: #1f6f4c;
+}
+
+.send-status.failed {
+  color: #a71f35;
 }
 
 @media (max-width: 640px) {
