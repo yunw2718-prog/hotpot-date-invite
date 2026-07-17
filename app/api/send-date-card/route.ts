@@ -20,12 +20,14 @@ function friendlyResendError(detail: string) {
 export async function POST(request: Request) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+  const gmailWebhookUrl = process.env.GMAIL_WEBHOOK_URL;
+  const gmailWebhookSecret = process.env.GMAIL_WEBHOOK_SECRET;
 
-  if (!resendApiKey) {
+  if (!gmailWebhookUrl && !resendApiKey) {
     return Response.json(
       {
         error:
-          "Email service is not configured. Please set RESEND_API_KEY and redeploy.",
+          "Email service is not configured. Please set GMAIL_WEBHOOK_URL or RESEND_API_KEY and redeploy.",
       },
       { status: 503 },
     );
@@ -41,6 +43,34 @@ export async function POST(request: Request) {
 
   const imageBase64 = image.replace("data:image/png;base64,", "");
   const dishes = payload.dishes?.length ? payload.dishes.join(", ") : "Not selected";
+
+  if (gmailWebhookUrl) {
+    const gmailResponse = await fetch(gmailWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        secret: gmailWebhookSecret,
+        to: recipient,
+        subject: "New hotpot date card",
+        soup: payload.soup ?? "Not selected",
+        dishes,
+        date: payload.date ?? "Not selected",
+        time: payload.time ?? "Not selected",
+        imageBase64,
+      }),
+    });
+
+    const gmailDetail = await gmailResponse.text();
+
+    if (!gmailResponse.ok || !gmailDetail.includes("\"ok\":true")) {
+      return Response.json(
+        { error: `Gmail send failed: ${gmailDetail || gmailResponse.statusText}` },
+        { status: 502 },
+      );
+    }
+
+    return Response.json({ ok: true, provider: "gmail" });
+  }
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
