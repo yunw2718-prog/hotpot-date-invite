@@ -1,8 +1,6 @@
 const targetEmail = "18640865859@163.com";
 
 type DateCardPayload = {
-  recipient?: string;
-  image?: string;
   date?: string;
   time?: string;
   soup?: string;
@@ -34,15 +32,16 @@ export async function POST(request: Request) {
   }
 
   const payload = (await request.json()) as DateCardPayload;
-  const image = payload.image ?? "";
-  const recipient = payload.recipient === targetEmail ? payload.recipient : targetEmail;
-
-  if (!image.startsWith("data:image/png;base64,")) {
-    return Response.json({ error: "Invalid image format." }, { status: 400 });
-  }
-
-  const imageBase64 = image.replace("data:image/png;base64,", "");
   const dishes = payload.dishes?.length ? payload.dishes.join(", ") : "Not selected";
+  const recipient = targetEmail;
+  const text = [
+    "有人完成了你的火锅约会调查：",
+    `锅底：${payload.soup ?? "未选择"}`,
+    `配菜：${dishes}`,
+    `日期：${payload.date ?? "未选择"}`,
+    `时间：${payload.time ?? "未选择"}`,
+    "散步：接受",
+  ].join("\\n");
 
   if (gmailWebhookUrl) {
     const gmailResponse = await fetch(gmailWebhookUrl, {
@@ -51,12 +50,8 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         secret: gmailWebhookSecret,
         to: recipient,
-        subject: "New hotpot date card",
-        soup: payload.soup ?? "Not selected",
-        dishes,
-        date: payload.date ?? "Not selected",
-        time: payload.time ?? "Not selected",
-        imageBase64,
+        subject: "火锅约会调查结果",
+        text,
       }),
     });
 
@@ -81,23 +76,8 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       from: `Date Invite <${fromEmail}>`,
       to: [recipient],
-      subject: "New hotpot date card",
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.7;">
-          <h2>A new date card was submitted</h2>
-          <p><strong>Soup base:</strong> ${payload.soup ?? "Not selected"}</p>
-          <p><strong>Dishes:</strong> ${dishes}</p>
-          <p><strong>Date:</strong> ${payload.date ?? "Not selected"}</p>
-          <p><strong>Time:</strong> ${payload.time ?? "Not selected"}</p>
-          <p>The date card image is attached.</p>
-        </div>
-      `,
-      attachments: [
-        {
-          filename: "date-card.png",
-          content: imageBase64,
-        },
-      ],
+      subject: "火锅约会调查结果",
+      text,
     }),
   });
 

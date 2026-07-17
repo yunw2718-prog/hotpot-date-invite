@@ -108,13 +108,11 @@ export default function Home() {
     setSendMessage("正在生成图片并发送到邮箱...");
 
     try {
-      const cardImage = createDateCard();
       const response = await fetch("/api/send-date-card", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           recipient: "18640865859@163.com",
-          image: cardImage,
           date,
           time,
           soup: selectedSoup,
